@@ -6,16 +6,16 @@ const {
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const express = require('express');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Render Web Service-ന് വേണ്ടിയുള്ള വെബ് സെർവർ
 app.get('/', (req, res) => {
-    res.send('WhatsApp Bot is running live 24/7 on Render!');
+    res.send('WhatsApp Bot is running live on Render!');
 });
 
 app.listen(PORT, () => {
-    console.log(`Web server listening on port ${PORT}`);
+    console.log(`Port ${PORT} is open and active.`);
 });
 
 async function startBot() {
@@ -66,7 +66,7 @@ async function startBot() {
 
             if (body.toLowerCase() === '!help') {
                 await sock.sendMessage(from, { 
-                    text: '📱 *Bot Commands:*\n• `!ping` - ബോട്ട് ലൈവ് ആണോ എന്ന് അറിയാൻ\n• `!help` - സഹായം ലഭിക്കാൻ' 
+                    text: '📱 *Bot Commands:*\n• `!ping` - ടെസ്റ്റ് ചെയ്യാൻ\n• `!help` - കമാൻഡുകൾ കാണാൻ' 
                 }, { quoted: msg });
                 continue;
             }
