@@ -1,3 +1,4 @@
+require('express')().get('/', (req, res) => res.send('OK')).listen(process.env.PORT || 3000);
 const { 
     default: makeWASocket, 
     useMultiFileAuthState, 
