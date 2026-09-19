@@ -1,4 +1,10 @@
-require('express')().get('/', (req, res) => res.send('OK')).listen(process.env.PORT || 3000);
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => res.send('Bot Active 24/7'));
+app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+
 const { 
     default: makeWASocket, 
     useMultiFileAuthState, 
@@ -6,18 +12,6 @@ const {
     fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const express = require('express');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.get('/', (req, res) => {
-    res.send('WhatsApp Bot is running live on Render!');
-});
-
-app.listen(PORT, () => {
-    console.log(`Port ${PORT} is open and active.`);
-});
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('./auth_info_baileys');
@@ -31,21 +25,32 @@ async function startBot() {
         browser: ['Ubuntu', 'Chrome', '20.0.04']
     });
 
+    if (!sock.authState.creds.registered) {
+        console.log('\n[+] Requesting Pairing Code for Render...');
+        setTimeout(async () => {
+            try {
+                // Your WhatsApp Number
+                const code = await sock.requestPairingCode('919567112860');
+                console.log('====================================');
+                console.log('🔥 NEW PAIRING CODE:', code);
+                console.log('====================================');
+            } catch (err) {
+                console.error('[-] Pairing Error:', err);
+            }
+        }, 5000);
+    }
+
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
-
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
-                console.log('[*] Reconnecting...');
                 startBot();
-            } else {
-                console.log('[-] Logged out.');
             }
         } else if (connection === 'open') {
-            console.log('[+] Connected successfully! WhatsApp Bot is live on Render.');
+            console.log('[+] BOT IS FULLY CONNECTED AND READY!');
         }
     });
 
@@ -53,22 +58,22 @@ async function startBot() {
         if (type !== 'notify') return;
 
         for (const msg of messages) {
-            if (!msg.message || msg.key.fromMe) continue;
+            if (!msg.message) continue;
 
             const from = msg.key.remoteJid;
             const body = (msg.message.conversation || msg.message.extendedTextMessage?.text || '').trim();
 
             if (!body) continue;
 
+            console.log(`[MSG RECEIVED] From: ${from} | Text: ${body}`);
+
             if (body.toLowerCase() === '!ping') {
-                await sock.sendMessage(from, { text: '🏓 Pong! Bot is active on Render Cloud 24/7.' }, { quoted: msg });
+                await sock.sendMessage(from, { text: '🏓 Pong! Bot is 100% active on Render Cloud.' }, { quoted: msg });
                 continue;
             }
 
             if (body.toLowerCase() === '!help') {
-                await sock.sendMessage(from, { 
-                    text: '📱 *Bot Commands:*\n• `!ping` - ടെസ്റ്റ് ചെയ്യാൻ\n• `!help` - കമാൻഡുകൾ കാണാൻ' 
-                }, { quoted: msg });
+                await sock.sendMessage(from, { text: '📱 *Bot Active!*\nCommands: `!ping`' }, { quoted: msg });
                 continue;
             }
         }
