@@ -9,7 +9,8 @@ const {
     default: makeWASocket, 
     useMultiFileAuthState, 
     DisconnectReason,
-    fetchLatestBaileysVersion
+    fetchLatestBaileysVersion,
+    downloadMediaMessage
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const axios = require('axios');
@@ -22,6 +23,22 @@ function getRuntime() {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
     return `${hours}h ${minutes}m${seconds}s`;
+}
+
+// Fancy text converter
+function toFancy(text) {
+    const fonts = {
+        bold: '𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭',
+        italic: '𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘯𝘰𝘱𝲵𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡',
+        mono: '𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉'
+    };
+    const normal = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let res = '';
+    for (let char of text) {
+        const idx = normal.indexOf(char);
+        res += idx !== -1 ? Array.from(fonts.bold)[idx] : char;
+    }
+    return res;
 }
 
 // Fun Datasets
@@ -48,6 +65,16 @@ const funData = {
         "ഗ്രൂപ്പ് കലക്കാൻ നോക്കിയാൽ തല്ലി പപ്പടമാക്കും!",
         "വായടച്ച് ഇരുന്നോ ഇല്ലെങ്കിൽ അഡ്മിൻ ചവിട്ടി പുറത്താക്കും!",
         "നിനക്ക് വേറെ പണി ഒന്നുമില്ലേടേയ്?!"
+    ],
+    flirt: [
+        "നിന്റെ പുഞ്ചിരി കണ്ടാൽ ആരും വഴിമാറിപ്പോകും... അത്രയ്ക്കും ക്യൂട്ട് ആണ്! ✨",
+        "Google-ൽ പോലും തിരഞ്ഞാൽ കിട്ടാത്ത ഒരാളാണ് നീ! ❤️",
+        "നിന്റെ കണ്ണുകളിൽ എന്തോ ഒരു മാന്ത്രികതയുണ്ട്, നോക്കി നിന്നാൽ സമയം പോകുന്നത് അറിയില്ല!"
+    ],
+    shayari: [
+        "ആരും കാണാതെ ഉള്ളിൽ സൂക്ഷിച്ച ഒരു ഇഷ്ടമുണ്ടായിരുന്നു... ഇന്നും മായാത്ത ചില ഓർമ്മകൾ പോലെ! 🥀",
+        "പെയ്യാൻ മറന്ന മഴ പോലെ ചില സ്വപ്നങ്ങൾ ഇന്നും മനസ്സിൽ ബാക്കിയാണ്... 🌧️",
+        "കൂടെയുണ്ടായിരുന്നപ്പോൾ അറിഞ്ഞില്ല, അകന്നപ്പോഴാണ് മനസ്സിലായത് ഓർമ്മകളുടെ വില... ✨"
     ],
     truth: [
         "നിങ്ങളുടെ ഫോണിലെ ഏറ്റവും സീക്രട്ട് ആയ കാര്യം എന്താണ്?",
@@ -163,8 +190,14 @@ async function startBot() {
 ◉ ➤ .mute / .unmute
 
 ━━━━━『 ᴛᴏᴏʟs & ᴜᴛɪʟɪᴛʏ 』━━━━━
-◉ ➤ .tts [വാചകം] (Voice Note)
-◉ ➤ .qr [വാചകം/ലിങ്ക്]
+◉ ➤ .sticker / .s (ഫോട്ടോയ്ക്ക് റിപ്ലൈ ആയി)
+◉ ➤ .fancy [വാചകം]
+◉ ➤ .calc [കണക്ക്] (ഉദാ: .calc 50*12)
+◉ ➤ .wiki [വിഷയം]
+◉ ➤ .short [ലിങ്ക്]
+◉ ➤ .ss [വെബ്സൈറ്റ്]
+◉ ➤ .tts [വാചകം]
+◉ ➤ .qr [ലിങ്ക്]
 ◉ ➤ .weather [സ്ഥലം]
 ◉ ➤ .lyrics [പാട്ടിന്റെ പേര്]
 
@@ -185,13 +218,15 @@ async function startBot() {
 ◉ ➤ .girldp
 
 ━━━━━『 ғᴜɴ & ɢᴀᴍᴇs 』━━━━━
+◉ ➤ .lovemeter
+◉ ➤ .flirt
+◉ ➤ .shayari
 ◉ ➤ .truth
 ◉ ➤ .dare
 ◉ ➤ .joke
 ◉ ➤ .fact
 ◉ ➤ .roast
 ◉ ➤ .respect
-◉ ➤ .dillagi
 ◉ ➤ .gaaliyan
 
 ━━━━━『 ᴍᴀɪɴ 』━━━━━
@@ -218,7 +253,115 @@ async function startBot() {
                 continue;
             }
 
-            // 3. TTS (Text to Speech - Voice Note)
+            // 3. FANCY FONT GENERATOR
+            if (command === 'fancy') {
+                if (!args) {
+                    await sock.sendMessage(from, { text: '❗ സ്റ്റൈൽ മാറ്റേണ്ട ഇംഗ്ലീഷ് വാചകം നൽകുക.\nഉദാഹരണം: `.fancy solo boy`' }, { quoted: msg });
+                    continue;
+                }
+                const styled = toFancy(args);
+                await sock.sendMessage(from, { text: `✨ *Fancy Text:*\n\n${styled}` }, { quoted: msg });
+                continue;
+            }
+
+            // 4. CALCULATOR
+            if (['calc', 'calculate'].includes(command)) {
+                if (!args) {
+                    await sock.sendMessage(from, { text: '❗ കണക്ക് നൽകുക.\nഉദാഹരണം: `.calc 1500 * 18 / 100`' }, { quoted: msg });
+                    continue;
+                }
+                try {
+                    const cleanMath = args.replace(/[^0-9+\-*/().]/g, '');
+                    const result = Function(`'use strict'; return (${cleanMath})`)();
+                    await sock.sendMessage(from, { text: `🧮 *കണക്ക്:* ${cleanMath}\n📊 *ഉത്തരം:* *${result}*` }, { quoted: msg });
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '⚠️ നൽകിയ കണക്ക് ശരിയല്ല.' }, { quoted: msg });
+                }
+                continue;
+            }
+
+            // 5. WIKIPEDIA
+            if (command === 'wiki') {
+                if (!args) {
+                    await sock.sendMessage(from, { text: '❗ തിരയേണ്ട വിഷയം നൽകുക.\nഉദാഹരണം: `.wiki Kerala`' }, { quoted: msg });
+                    continue;
+                }
+                await sock.sendMessage(from, { text: '🔍 _വിക്കിപീഡിയ പരിശോധിക്കുന്നു..._' }, { quoted: msg });
+                try {
+                    const res = await axios.get(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(args)}`);
+                    if (res.data?.extract) {
+                        const wikiReply = `📚 *WIKIPEDIA:* ${res.data.title}\n\n${res.data.extract}\n\n🔗 ${res.data.content_urls?.desktop?.page || ''}`;
+                        await sock.sendMessage(from, { text: wikiReply }, { quoted: msg });
+                    } else {
+                        await sock.sendMessage(from, { text: '⚠️ വിവരങ്ങൾ ലഭ്യമായില്ല.' }, { quoted: msg });
+                    }
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '⚠️ വിക്കിപീഡിയയിൽ കണ്ടെത്താൻ കഴിഞ്ഞില്ല.' }, { quoted: msg });
+                }
+                continue;
+            }
+
+            // 6. SHORT LINK
+            if (command === 'short') {
+                if (!args || !args.startsWith('http')) {
+                    await sock.sendMessage(from, { text: '❗ ലിങ്ക് നൽകുക.\nഉദാഹരണം: `.short https://www.google.com`' }, { quoted: msg });
+                    continue;
+                }
+                try {
+                    const res = await axios.get(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(args)}`);
+                    await sock.sendMessage(from, { text: `🔗 *Short Link:* ${res.data}` }, { quoted: msg });
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '⚠️ ലിങ്ക് ചെറുതാക്കാൻ കഴിഞ്ഞില്ല.' }, { quoted: msg });
+                }
+                continue;
+            }
+
+            // 7. SCREENSHOT TOOL
+            if (command === 'ss') {
+                if (!args || !args.startsWith('http')) {
+                    await sock.sendMessage(from, { text: '❗ വെബ്സൈറ്റ് ലിങ്ക് നൽകുക.\nഉദാഹരണം: `.ss https://github.com`' }, { quoted: msg });
+                    continue;
+                }
+                await sock.sendMessage(from, { text: '📸 _സ്ക്രീൻഷോട്ട് എടുക്കുന്നു..._' }, { quoted: msg });
+                const ssUrl = `https://image.thum.io/get/width/1200/crop/800/${args}`;
+                try {
+                    await sock.sendMessage(from, { image: { url: ssUrl }, caption: `📸 *Screenshot of:* ${args}` }, { quoted: msg });
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '⚠️ സ്ക്രീൻഷോട്ട് എടുക്കാൻ കഴിഞ്ഞില്ല.' }, { quoted: msg });
+                }
+                continue;
+            }
+
+            // 8. STICKER MAKER
+            if (['s', 'sticker'].includes(command)) {
+                const quotedMsg = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+                const isImage = msg.message.imageMessage || quotedMsg?.imageMessage;
+
+                if (!isImage) {
+                    await sock.sendMessage(from, { text: '❗ ഏതെങ്കിലും ചിത്രത്തോടൊപ്പം `.sticker` എന്ന് അയക്കുക, അല്ലെങ്കിൽ ഫോട്ടോയ്ക്ക് റിപ്ലൈ ആയി `.s` അടിക്കുക.' }, { quoted: msg });
+                    continue;
+                }
+                await sock.sendMessage(from, { text: '🎨 _സ്റ്റിക്കർ തയ്യാറാക്കുന്നു..._' }, { quoted: msg });
+                try {
+                    const mediaMsg = msg.message.imageMessage ? msg : { message: quotedMsg };
+                    const buffer = await downloadMediaMessage(mediaMsg, 'buffer', {});
+                    await sock.sendMessage(from, { sticker: buffer }, { quoted: msg });
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '⚠️ സ്റ്റിക്കർ മാറ്റുന്നതിൽ തടസ്സം നേരിട്ടു.' }, { quoted: msg });
+                }
+                continue;
+            }
+
+            // 9. LOVE METER
+            if (['lovemeter', 'lovetest'].includes(command)) {
+                const percent = Math.floor(Math.random() * 51) + 50;
+                await sock.sendMessage(from, { 
+                    text: `❤️ *LOVE METER TEST*\n\n💖 സ്നേഹത്തിന്റെ അളവ്: *${percent}\%*\n✨ ${percent > 85 ? 'സ്വർഗ്ഗത്തിൽ വെച്ച് തീർച്ചയാക്കിയ ബന്ധം!' : 'നല്ലൊരു പ്രണയബന്ധം സാധ്യമാണ്!'}` 
+                }, { quoted: msg });
+                continue;
+            }
+
+            // 10. TTS
             if (['tts', 'say'].includes(command)) {
                 if (!args) {
                     await sock.sendMessage(from, { text: '❗ ശബ്ദമാക്കി മാറ്റേണ്ട വാചകം നൽകുക.\nഉദാഹരണം: `.tts സുഖമാണോ കൂട്ടുകാരെ?`' }, { quoted: msg });
@@ -237,7 +380,7 @@ async function startBot() {
                 continue;
             }
 
-            // 4. QR CODE MAKER
+            // 11. QR CODE MAKER
             if (command === 'qr') {
                 if (!args) {
                     await sock.sendMessage(from, { text: '❗ QR കോഡ് ഉണ്ടാക്കാൻ ഉള്ള ലിങ്കോ ടെക്സ്റ്റോ നൽകുക.\nഉദാഹരണം: `.qr https://google.com`' }, { quoted: msg });
@@ -251,7 +394,7 @@ async function startBot() {
                 continue;
             }
 
-            // 5. WEATHER
+            // 12. WEATHER
             if (command === 'weather') {
                 if (!args) {
                     await sock.sendMessage(from, { text: '❗ സ്ഥലത്തിന്റെ പേര് നൽകുക.\nഉദാഹരണം: `.weather Kozhikode`' }, { quoted: msg });
@@ -272,7 +415,7 @@ async function startBot() {
                 continue;
             }
 
-            // 6. LYRICS
+            // 13. LYRICS
             if (command === 'lyrics') {
                 if (!args) {
                     await sock.sendMessage(from, { text: '❗ പാട്ടിന്റെ പേര് നൽകുക.\nഉദാഹരണം: `.lyrics jimikki kammal`' }, { quoted: msg });
@@ -292,7 +435,7 @@ async function startBot() {
                 continue;
             }
 
-            // 7. AI COMMANDS
+            // 14. AI COMMANDS
             const aiCommands = ['gemini', 'gpt4', 'deepseek'];
             if (aiCommands.includes(command)) {
                 if (!args) {
@@ -310,7 +453,7 @@ async function startBot() {
                 continue;
             }
 
-            // 8. DOWNLOAD COMMANDS
+            // 15. DOWNLOAD COMMANDS
             if (['instagram', 'ig', 'tiktok', 'tt'].includes(command)) {
                 if (!args || !args.startsWith('http')) {
                     await sock.sendMessage(from, { text: `❗ ലിങ്ക് നൽകുക.\nഉദാഹരണം: \`.${command} https://...\`` }, { quoted: msg });
@@ -355,7 +498,7 @@ async function startBot() {
                 continue;
             }
 
-            // 9. ANIME & RANDOM DP
+            // 16. ANIME & RANDOM DP
             if (['waifu', 'neko'].includes(command)) {
                 try {
                     const res = await axios.get(`https://api.waifu.pics/sfw/${command}`);
@@ -377,7 +520,7 @@ async function startBot() {
                 continue;
             }
 
-            // 10. GROUP COMMANDS
+            // 17. GROUP COMMANDS
             if (isGroup) {
                 // TAGALL
                 if (command === 'tagall') {
@@ -393,7 +536,7 @@ async function startBot() {
                     continue;
                 }
 
-                // HIDETAG (Invisible mentions)
+                // HIDETAG
                 if (command === 'hidetag') {
                     const groupMetadata = await sock.groupMetadata(from);
                     const mentions = groupMetadata.participants.map(p => p.id);
@@ -446,8 +589,8 @@ async function startBot() {
                 }
             }
 
-            // 11. FUN & GAMES
-            const funKeys = ['roast', 'respect', 'dillagi', 'gaaliyan', 'truth', 'dare', 'jokes', 'joke', 'facts', 'fact'];
+            // 18. FUN & GAMES
+            const funKeys = ['roast', 'respect', 'dillagi', 'gaaliyan', 'truth', 'dare', 'jokes', 'joke', 'facts', 'fact', 'flirt', 'shayari'];
             if (funKeys.includes(command)) {
                 let key = command;
                 if (key === 'joke') key = 'jokes';
