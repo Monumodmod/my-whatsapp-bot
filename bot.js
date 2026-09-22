@@ -9,14 +9,10 @@ const {
     default: makeWASocket, 
     useMultiFileAuthState, 
     DisconnectReason,
-    fetchLatestBaileysVersion,
-    downloadMediaMessage
+    fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
 
 const botStartTime = Date.now();
 
@@ -28,25 +24,55 @@ function getRuntime() {
     return `${hours}h ${minutes}m${seconds}s`;
 }
 
-const funResponses = {
+// Fun Datasets
+const funData = {
     roast: [
         "നിന്റെ തലച്ചോറ് 4G അല്ല, 2G റേഞ്ച് പോലുമില്ലാത്ത മൊബൈൽ ടവർ പോലെയാണ്!",
         "നീ സംസാരിക്കുമ്പോൾ ശാസ്ത്രലോകം ചിന്തിക്കും, മനുഷ്യൻ ശരിക്കും കുരങ്ങനിൽ നിന്നാണോ പരിണമിച്ചതെന്ന്!",
-        "സൗന്ദര്യം ആയുസ്സിൽ ഒരിക്കലേ ഉണ്ടാവൂ എന്ന് കേട്ടിട്ടുണ്ട്, നിന്റെ കാര്യത്തിൽ അതും സംഭവിച്ചിട്ടില്ല!"
+        "സൗന്ദര്യം ആയുസ്സിൽ ഒരിക്കലേ ഉണ്ടാവൂ എന്ന് കേട്ടിട്ടുണ്ട്, നിന്റെ കാര്യത്തിൽ അതും സംഭവിച്ചിട്ടില്ല!",
+        "ജീവിതത്തിൽ ഒരു ലക്ഷ്യം ഒക്കെ വേണ്ടേ സുഹൃത്തേ, വെറുതെ ഗ്രൂപ്പിൽ സ്പാം ചെയ്യാൻ ജനിച്ചതാണോ?"
     ],
     respect: [
         "👑 സല്യൂട്ട് ബ്രോ! നിങ്ങൾ വേറെ ലെവൽ തന്നെയാണ്!",
         "🌟 Respect 100%! വാക്കുകൾക്ക് അതീതമായ ബഹുമാനം!",
+        "🙌 താങ്കളുടെ സാന്നിധ്യം തന്നെ ഈ ഗ്രൂപ്പിന് ഐശ്വര്യമാണ്!",
         "💎 നിങ്ങൾ ഒരു ലെജൻഡ് തന്നെയാണ്!"
     ],
     dillagi: [
         "ദിൽ സേ ദിൽ തക്... മനസ്സ് തുറന്ന് ചിരിക്കൂ സുഹൃത്തേ! ❤️",
-        "പ്രണയവും തമാശയും ഒക്കെ ജീവിതത്തിന്റെ ഭാഗമാണ്!"
+        "പ്രണയവും തമാശയും ഒക്കെ ജീവിതത്തിന്റെ ഭാഗമാണ്, കാര്യമായിട്ടെടുക്കല്ലേ!",
+        "ചില ഇഷ്ടങ്ങൾ അങ്ങനെയാണ്, പറഞ്ഞറിയിക്കാൻ കഴിയില്ല... ✨"
     ],
     gaaliyan: [
         "മര്യാദക്ക് നിന്നോണം കേട്ടോ! 🤬",
         "ഗ്രൂപ്പ് കലക്കാൻ നോക്കിയാൽ തല്ലി പപ്പടമാക്കും!",
-        "വായടച്ച് ഇരുന്നോ ഇല്ലെങ്കിൽ അഡ്മിൻ ചവിട്ടി പുറത്താക്കും!"
+        "വായടച്ച് ഇരുന്നോ ഇല്ലെങ്കിൽ അഡ്മിൻ ചവിട്ടി പുറത്താക്കും!",
+        "നിനക്ക് വേറെ പണി ഒന്നുമില്ലേടേയ്?!"
+    ],
+    truth: [
+        "നിങ്ങളുടെ ഫോണിലെ ഏറ്റവും സീക്രട്ട് ആയ കാര്യം എന്താണ്?",
+        "ഇതുവരെ ആരോടും പറയാത്ത ഒരു വലിയ കള്ളം പറയൂ?",
+        "ഈ ഗ്രൂപ്പിൽ നിങ്ങൾക്ക് ഏറ്റവും ക്രഷ് തോന്നിയ ആൾ ആരാണ്?",
+        "നിങ്ങൾ അവസാനമായി കരഞ്ഞത് എപ്പോഴാണ്, എന്തിന് വേണ്ടി?",
+        "നിങ്ങൾക്ക് തിരുത്താൻ കഴിഞ്ഞിരുന്നെങ്കിൽ തിരുത്തുമായിരുന്ന ഒരു പഴയ തെറ്റ്?"
+    ],
+    dare: [
+        "നിങ്ങളുടെ ക്രഷിന് WhatsApp-ൽ 'I Love You' എന്ന് മെസ്സേജ് അയക്കുക!",
+        "ഒരു മിനിറ്റ് വോയ്‌സ് നോട്ടിൽ പാട്ട് പാടി ഈ ഗ്രൂപ്പിലേക്ക് ഇടുക!",
+        "നിങ്ങളുടെ വാട്സാപ്പ് സ്റ്റാറ്റസിൽ 'ഞാൻ ഇന്ന് എല്ലാവർക്കും ബിരിയാണി വാങ്ങി തരും' എന്ന് ഇടുക!",
+        "നിങ്ങളുടെ ഗാലറിയിലെ അവസാനത്തെ ഫോട്ടോ ഗ്രൂപ്പിൽ ഷെയർ ചെയ്യുക!",
+        "ഗ്രൂപ്പിലെ ഏതെങ്കിലും ഒരാളെക്കുറിച്ച് 3 നല്ല കാര്യങ്ങൾ വോയ്‌സ് അയക്കുക!"
+    ],
+    jokes: [
+        "അധ്യാപകൻ: അക്ബറിന്റെ ശവകുടീരം എവിടെയാണ്?\nവിദ്യാർത്ഥി: മണ്ണിൽ, സർ!",
+        "ഡോക്ടർ: ദിവസവും 5 കിലോമീറ്റർ നടക്കണം.\nരോഗി: നടക്കാം ഡോക്ടർ, പക്ഷെ തിരിച്ചു വരാൻ ഓട്ടോക്കൂലി വേണം!",
+        "ഒരു കൊതുകിന്റെ ആത്മകഥ: മനുഷ്യന്മാർ എന്നെ കാണുമ്പോൾ കൈയടിക്കുന്നത് ഞാൻ വലിയ സ്റ്റാർ ആയതുകൊണ്ടല്ല!"
+    ],
+    facts: [
+        "നക്ഷത്രമീനുകൾക്ക് (Starfish) തലച്ചോറില്ല!",
+        "ഒരു തേനീച്ചയ്ക്ക് 5 കണ്ണുകളുണ്ട്!",
+        "ഒട്ടകപ്പക്ഷിയുടെ കണ്ണ് അതിന്റെ തലച്ചോറിനേക്കാൾ വലുതാണ്!",
+        "വെള്ളം കുടിക്കാത്ത ഒരേയൊരു ജീവിയാണ് കംഗാരു എലി (Kangaroo Rat)!"
     ]
 };
 
@@ -63,7 +89,7 @@ async function startBot() {
     });
 
     if (!sock.authState.creds.registered) {
-        console.log('\n[+] Requesting Pairing Code...');
+        console.log('\n[+] Requesting Pairing Code for Render...');
         setTimeout(async () => {
             try {
                 const code = await sock.requestPairingCode('919567112860');
@@ -83,6 +109,7 @@ async function startBot() {
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
+                console.log('[*] Reconnecting...');
                 startBot();
             }
         } else if (connection === 'open') {
@@ -127,11 +154,19 @@ async function startBot() {
 ◉ 🏷️ ᴠᴇʀsɪᴏɴ: 12.0.0 Bᴇᴛᴀ
 
 ━━━━━『 ɢʀᴏᴜᴘ 』━━━━━
-◉ ➤ .tagall
+◉ ➤ .tagall [മെസ്സേജ്]
+◉ ➤ .hidetag [മെസ്സേജ്]
+◉ ➤ .link
 ◉ ➤ .kick [@mention]
 ◉ ➤ .promote [@mention]
 ◉ ➤ .demote [@mention]
 ◉ ➤ .mute / .unmute
+
+━━━━━『 ᴛᴏᴏʟs & ᴜᴛɪʟɪᴛʏ 』━━━━━
+◉ ➤ .tts [വാചകം] (Voice Note)
+◉ ➤ .qr [വാചകം/ലിങ്ക്]
+◉ ➤ .weather [സ്ഥലം]
+◉ ➤ .lyrics [പാട്ടിന്റെ പേര്]
 
 ━━━━━『 ᴀɪ 』━━━━━
 ◉ ➤ .gemini [ചോദ്യം]
@@ -149,11 +184,11 @@ async function startBot() {
 ◉ ➤ .boydp
 ◉ ➤ .girldp
 
-━━━━━『 sᴛɪᴄᴋᴇʀ 』━━━━━
-◉ ➤ .sticker (ചിത്രത്തോടൊപ്പം അയക്കുക)
-◉ ➤ .s
-
-━━━━━『 ғᴜɴ & ǫᴜᴏᴛᴇs 』━━━━━
+━━━━━『 ғᴜɴ & ɢᴀᴍᴇs 』━━━━━
+◉ ➤ .truth
+◉ ➤ .dare
+◉ ➤ .joke
+◉ ➤ .fact
 ◉ ➤ .roast
 ◉ ➤ .respect
 ◉ ➤ .dillagi
@@ -183,7 +218,81 @@ async function startBot() {
                 continue;
             }
 
-            // 3. AI COMMANDS
+            // 3. TTS (Text to Speech - Voice Note)
+            if (['tts', 'say'].includes(command)) {
+                if (!args) {
+                    await sock.sendMessage(from, { text: '❗ ശബ്ദമാക്കി മാറ്റേണ്ട വാചകം നൽകുക.\nഉദാഹരണം: `.tts സുഖമാണോ കൂട്ടുകാരെ?`' }, { quoted: msg });
+                    continue;
+                }
+                try {
+                    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(args)}&tl=ml&client=tw-ob`;
+                    await sock.sendMessage(from, { 
+                        audio: { url: ttsUrl }, 
+                        mimetype: 'audio/mp4', 
+                        ptt: true 
+                    }, { quoted: msg });
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '⚠️ ശബ്ദം തയ്യാറാക്കുന്നതിൽ തടസ്സം നേരിട്ടു.' }, { quoted: msg });
+                }
+                continue;
+            }
+
+            // 4. QR CODE MAKER
+            if (command === 'qr') {
+                if (!args) {
+                    await sock.sendMessage(from, { text: '❗ QR കോഡ് ഉണ്ടാക്കാൻ ഉള്ള ലിങ്കോ ടെക്സ്റ്റോ നൽകുക.\nഉദാഹരണം: `.qr https://google.com`' }, { quoted: msg });
+                    continue;
+                }
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(args)}`;
+                await sock.sendMessage(from, { 
+                    image: { url: qrUrl }, 
+                    caption: `✅ *QR Code Generated!*\n📝 *Data:* ${args}` 
+                }, { quoted: msg });
+                continue;
+            }
+
+            // 5. WEATHER
+            if (command === 'weather') {
+                if (!args) {
+                    await sock.sendMessage(from, { text: '❗ സ്ഥലത്തിന്റെ പേര് നൽകുക.\nഉദാഹരണം: `.weather Kozhikode`' }, { quoted: msg });
+                    continue;
+                }
+                try {
+                    const res = await axios.get(`https://wttr.in/${encodeURIComponent(args)}?format=j1`);
+                    const current = res.data?.current_condition?.[0];
+                    if (current) {
+                        const weatherText = `🌤️ *WEATHER REPORT:* ${args.toUpperCase()}\n\n🌡️ *താപനില:* ${current.temp_C}°C\n💧 *ഈർപ്പം (Humidity):* ${current.humidity}%\n💨 *കാറ്റിന്റെ വേഗത:* ${current.windspeedKmph} km/h\n☁️ *സ്ഥിതി:* ${current.weatherDesc?.[0]?.value || 'Normal'}`;
+                        await sock.sendMessage(from, { text: weatherText }, { quoted: msg });
+                    } else {
+                        await sock.sendMessage(from, { text: '⚠️ സ്ഥലവിവരം ലഭ്യമായില്ല.' }, { quoted: msg });
+                    }
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '⚠️ കാലാവസ്ഥാ വിവരങ്ങൾ എടുക്കുന്നതിൽ തടസ്സം നേരിട്ടു.' }, { quoted: msg });
+                }
+                continue;
+            }
+
+            // 6. LYRICS
+            if (command === 'lyrics') {
+                if (!args) {
+                    await sock.sendMessage(from, { text: '❗ പാട്ടിന്റെ പേര് നൽകുക.\nഉദാഹരണം: `.lyrics jimikki kammal`' }, { quoted: msg });
+                    continue;
+                }
+                await sock.sendMessage(from, { text: '🔍 _വരികൾ തിരയുന്നു..._' }, { quoted: msg });
+                try {
+                    const res = await axios.get(`https://api.lyrics.ovh/v1/${encodeURIComponent(args)}/${encodeURIComponent(args)}`);
+                    if (res.data?.lyrics) {
+                        await sock.sendMessage(from, { text: `📜 *LYRICS:* ${args.toUpperCase()}\n\n${res.data.lyrics}` }, { quoted: msg });
+                    } else {
+                        await sock.sendMessage(from, { text: '⚠️ ഈ പാട്ടിന്റെ വരികൾ കണ്ടെത്താനായില്ല.' }, { quoted: msg });
+                    }
+                } catch (e) {
+                    await sock.sendMessage(from, { text: '⚠️ വരികൾ ലഭ്യമാക്കാൻ കഴിഞ്ഞില്ല.' }, { quoted: msg });
+                }
+                continue;
+            }
+
+            // 7. AI COMMANDS
             const aiCommands = ['gemini', 'gpt4', 'deepseek'];
             if (aiCommands.includes(command)) {
                 if (!args) {
@@ -201,7 +310,7 @@ async function startBot() {
                 continue;
             }
 
-            // 4. DOWNLOAD COMMANDS
+            // 8. DOWNLOAD COMMANDS
             if (['instagram', 'ig', 'tiktok', 'tt'].includes(command)) {
                 if (!args || !args.startsWith('http')) {
                     await sock.sendMessage(from, { text: `❗ ലിങ്ക് നൽകുക.\nഉദാഹരണം: \`.${command} https://...\`` }, { quoted: msg });
@@ -246,7 +355,7 @@ async function startBot() {
                 continue;
             }
 
-            // 5. ANIME & RANDOM DP
+            // 9. ANIME & RANDOM DP
             if (['waifu', 'neko'].includes(command)) {
                 try {
                     const res = await axios.get(`https://api.waifu.pics/sfw/${command}`);
@@ -268,8 +377,9 @@ async function startBot() {
                 continue;
             }
 
-            // 6. GROUP COMMANDS
+            // 10. GROUP COMMANDS
             if (isGroup) {
+                // TAGALL
                 if (command === 'tagall') {
                     const groupMetadata = await sock.groupMetadata(from);
                     const participants = groupMetadata.participants;
@@ -283,6 +393,26 @@ async function startBot() {
                     continue;
                 }
 
+                // HIDETAG (Invisible mentions)
+                if (command === 'hidetag') {
+                    const groupMetadata = await sock.groupMetadata(from);
+                    const mentions = groupMetadata.participants.map(p => p.id);
+                    await sock.sendMessage(from, { text: args || '🔔 ഗ്രൂപ്പ് ശ്രദ്ധിക്കുക!', mentions }, { quoted: msg });
+                    continue;
+                }
+
+                // GROUP LINK
+                if (['link', 'grouplink'].includes(command)) {
+                    try {
+                        const code = await sock.groupInviteCode(from);
+                        await sock.sendMessage(from, { text: `🔗 *ഗ്രൂപ്പ് ലിങ്ക്:*\nhttps://chat.whatsapp.com/${code}` }, { quoted: msg });
+                    } catch (e) {
+                        await sock.sendMessage(from, { text: '⚠️ ഗ്രൂപ്പ് ലിങ്ക് എടുക്കാൻ ബോട്ടിന് അഡ്മിൻ അധികാരം വേണം.' }, { quoted: msg });
+                    }
+                    continue;
+                }
+
+                // MUTE & UNMUTE
                 if (command === 'mute') {
                     await sock.groupSettingUpdate(from, 'announcement');
                     await sock.sendMessage(from, { text: '🔒 *ഗ്രൂപ്പ് മ്യൂട്ട് ചെയ്തു.*' }, { quoted: msg });
@@ -295,6 +425,7 @@ async function startBot() {
                     continue;
                 }
 
+                // KICK, PROMOTE, DEMOTE
                 const targetUser = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
                 if (['kick', 'promote', 'demote'].includes(command)) {
                     if (!targetUser) {
@@ -315,10 +446,13 @@ async function startBot() {
                 }
             }
 
-            // 7. FUN COMMANDS
-            const funAliases = ['roast', 'respect', 'dillagi', 'gaaliyan'];
-            if (funAliases.includes(command)) {
-                const list = funResponses[command] || funResponses['roast'];
+            // 11. FUN & GAMES
+            const funKeys = ['roast', 'respect', 'dillagi', 'gaaliyan', 'truth', 'dare', 'jokes', 'joke', 'facts', 'fact'];
+            if (funKeys.includes(command)) {
+                let key = command;
+                if (key === 'joke') key = 'jokes';
+                if (key === 'fact') key = 'facts';
+                const list = funData[key] || funData['roast'];
                 const randomMsg = list[Math.floor(Math.random() * list.length)];
                 await sock.sendMessage(from, { text: randomMsg }, { quoted: msg });
                 continue;
